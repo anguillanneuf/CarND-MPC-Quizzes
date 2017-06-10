@@ -22,6 +22,9 @@ you'll have to install Ipopt and CppAD.
 
 * [Ipopt](https://projects.coin-or.org/Ipopt)
   * Mac: `brew install ipopt --with-openblas`
+  	* `brew install homebrew/science/ipopt` worked for me on Mac
+  	* `brew tap homebrew/science` followed by `brew install cppad` worked for me on Mac
+
   * Linux
     * [This Dockerfile](./Dockerfile) might be helpful.
     * You will need a version of Ipopt 3.12.1 or higher. The version available through `apt-get` is 3.11.x, sudo apt-get install coinor-libipopt-dev. If you can get that version to work great but if not there's a script `install_ipopt.sh` that will install Ipopt. You just need to download the source from [here](https://www.coin-or.org/download/source/Ipopt/) or [here](https://github.com/coin-or/Ipopt/releases/) if the former doesn't work.
