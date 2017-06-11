@@ -11,10 +11,8 @@ namespace plt = matplotlibcpp;
 using CppAD::AD;
 
 // TODO: Set N and dt
-size_t N =
-?;
-double dt =
-?;
+size_t N = 25;
+double dt = 0.05;
 
 // This value assumes the model presented in the classroom is used.
 //
@@ -34,7 +32,7 @@ double ref_v = 40;
 
 // The solver takes all the state variables and actuator
 // variables in a singular vector. Thus, we should to establish
-// when one variable starts and another ends to make our lifes easier.
+// when one variable starts and another ends to make our lives easier.
 size_t x_start = 0;
 size_t y_start = x_start + N;
 size_t psi_start = y_start + N;
@@ -57,14 +55,41 @@ public:
 
     // `fg` is a vector containing the cost and constraints.
     // `vars` is a vector containing the variable values (state & actuators).
+    // `fg` is one element larger than `vars`.
     void operator()(ADvector &fg, const ADvector &vars) {
         // The cost is stored is the first element of `fg`.
         // Any additions to the cost should be added to `fg[0]`.
         fg[0] = 0;
 
         // Reference State Cost
-        // TODO: Define the cost related the reference state and
-        // any anything you think may be beneficial.
+        // TODO: Define the cost related the reference state and anything else beneficial.
+
+        // Consideration 1: desired position
+        for (int t = cte_start; t < N; t++) {
+            fg[0] += CppAD::pow(vars[t], 2);
+        }
+        // Consideration 2: desired heading
+        for (int t = epsi_start; t < N; t++) {
+            fg[0] += CppAD::pow(vars[t], 2);
+        }
+        // Consideration 3: dealing with stopping
+        fg[0] += CppAD::pow(vars[v_start] - ref_v, 2);
+        // Considerations 4: add the control input magnitude to avoid jerking the steering wheel
+        for (int t = delta_start; t < N - 1; t++) {
+            fg[0] += CppAD::pow(vars[t], 2);
+        }
+        // Considerations 5: add the control input magnitude to avoid jerking the steering wheel
+        for (int t = a_start; t < N - 1; t++) {
+            fg[0] += CppAD::pow(vars[t], 2);
+        }
+        // Consideration 6: adds diff between the next steering actuator state & the current one
+        for (int t = delta_start; t < N-1; t++) {
+            fg[0] += CppAD::pow(vars[t+1] - vars[t], 2);
+        }
+        // Consideration 7: adds diff between the next acceleration actuator state & the current one
+        for (int t = a_start; t < N-1; t++) {
+            fg[0] += CppAD::pow(vars[t+1] - vars[t], 2);
+        }
 
         //
         // Setup Constraints
@@ -86,7 +111,6 @@ public:
         // The rest of the constraints
         for (int t = 1; t < N; t++) {
             AD<double> x1 = vars[x_start + t];
-
             AD<double> x0 = vars[x_start + t - 1];
             AD<double> psi0 = vars[psi_start + t - 1];
             AD<double> v0 = vars[v_start + t - 1];
@@ -100,6 +124,34 @@ public:
 
             // TODO: Setup the rest of the model constraints
             fg[1 + x_start + t] = x1 - (x0 + v0 * CppAD::cos(psi0) * dt);
+
+            // `y`
+            AD<double> y1 = vars[y_start + t];
+            AD<double> y0 = vars[y_start + t - 1];
+            fg[1 + y_start + t] = y1 - (y0 + v0 * CppAD::sin(psi0) * dt);
+
+            // `psi`
+            AD<double> psi1 = vars[psi_start + t];
+            AD<double> delta0 = vars[delta_start + t - 1];
+            fg[1 + psi_start + t] = psi1 - (psi0 + v0 / Lf * delta0 * dt);
+
+            // `v`
+            AD<double> v1 = vars[v_start + t];
+            AD<double> a0 = vars[a_start + t - 1];
+            fg[1 + v_start + t] = v1 - (v0 + a0 * dt);
+
+            // `cte`
+            AD<double> cte1 = vars[cte_start + t];
+            AD<double> epsi0 = vars[epsi_start + t - 1];
+            AD<double> cte0 = vars[cte_start + t - 1];
+            AD<double> f0 = coeffs[0] + coeffs[1] * x0;
+            fg[1 + cte_start + t] = cte1 - ((f0 - y0) + v0 * CppAD::sin(epsi0) * dt);
+
+            // `epsi`
+            AD<double> epsi1 = vars[epsi_start + t];
+            AD<double> psides0 = CppAD::atan(coeffs[1]);
+            fg[1 + epsi_start + t] = epsi1 - ((psi0 - psides0) + v0 / Lf * delta0 * dt);
+
         }
     }
 };
@@ -205,7 +257,7 @@ vector<double> MPC::Solve(Eigen::VectorXd x0, Eigen::VectorXd coeffs) {
     // place to return solution
     CppAD::ipopt::solve_result <Dvector> solution;
 
-    // solve the problem
+    // solve the problem: this packs a punch.
     CppAD::ipopt::solve<Dvector, FG_eval>(
             options, vars, vars_lowerbound, vars_upperbound, constraints_lowerbound,
             constraints_upperbound, fg_eval, solution);
@@ -271,7 +323,7 @@ int main() {
     ptsy << -1, -1;
 
     // TODO: fit a polynomial to the above x and y coordinates
-    auto coeffs = ?;
+    auto coeffs = polyfit(ptsx, ptsy, 1);
 
     // NOTE: free feel to play around with these
     double x = -1;
@@ -279,9 +331,9 @@ int main() {
     double psi = 0;
     double v = 10;
     // TODO: calculate the cross track error
-    double cte = ?;
+    double cte = polyeval(coeffs, x) - y;
     // TODO: calculate the orientation error
-    double epsi = ?;
+    double epsi = psi - atan(coeffs[1]);
 
     Eigen::VectorXd state(6);
     state << x, y, psi, v, cte, epsi;
