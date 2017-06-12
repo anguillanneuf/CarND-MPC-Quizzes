@@ -61,33 +61,55 @@ public:
         // Any additions to the cost should be added to `fg[0]`.
         fg[0] = 0;
 
+
+/*        for (int t = 0; t < N; t++) {
+            fg[0] += CppAD::pow(vars[cte_start + t], 2);
+            fg[0] += CppAD::pow(vars[epsi_start + t], 2);
+            fg[0] += CppAD::pow(vars[v_start + t] - ref_v, 2);
+        }
+
+        // Minimize the use of actuators.
+        for (int t = 0; t < N - 1; t++) {
+            fg[0] += CppAD::pow(vars[delta_start + t], 2);
+            fg[0] += CppAD::pow(vars[a_start + t], 2);
+        }
+
+        // Minimize the value gap between sequential actuations.
+        for (int t = 0; t < N - 2; t++) {
+            fg[0] += CppAD::pow(vars[delta_start + t + 1] - vars[delta_start + t], 2);
+            fg[0] += CppAD::pow(vars[a_start + t + 1] - vars[a_start + t], 2);
+        }*/
+
+
         // Reference State Cost
         // TODO: Define the cost related the reference state and anything else beneficial.
 
         // Consideration 1: desired position
-        for (int t = cte_start; t < N; t++) {
+        for (int t = cte_start; t < N + cte_start; t++) {
             fg[0] += CppAD::pow(vars[t], 2);
         }
         // Consideration 2: desired heading
-        for (int t = epsi_start; t < N; t++) {
+        for (int t = epsi_start; t < N + epsi_start; t++) {
             fg[0] += CppAD::pow(vars[t], 2);
         }
         // Consideration 3: dealing with stopping
-        fg[0] += CppAD::pow(vars[v_start] - ref_v, 2);
+        for (int t = v_start; t < N + v_start; t++) {
+            fg[0] += CppAD::pow(vars[t] - ref_v, 2);
+        }
         // Considerations 4: add the control input magnitude to avoid jerking the steering wheel
-        for (int t = delta_start; t < N - 1; t++) {
+        for (int t = delta_start; t < N - 1 + delta_start; t++) {
             fg[0] += CppAD::pow(vars[t], 2);
         }
         // Considerations 5: add the control input magnitude to avoid jerking the steering wheel
-        for (int t = a_start; t < N - 1; t++) {
+        for (int t = a_start; t < N - 1 + a_start; t++) {
             fg[0] += CppAD::pow(vars[t], 2);
         }
         // Consideration 6: adds diff between the next steering actuator state & the current one
-        for (int t = delta_start; t < N-1; t++) {
+        for (int t = delta_start; t < N - 2 + delta_start; t++) {
             fg[0] += CppAD::pow(vars[t+1] - vars[t], 2);
         }
         // Consideration 7: adds diff between the next acceleration actuator state & the current one
-        for (int t = a_start; t < N-1; t++) {
+        for (int t = a_start; t < N - 2 + a_start; t++) {
             fg[0] += CppAD::pow(vars[t+1] - vars[t], 2);
         }
 
